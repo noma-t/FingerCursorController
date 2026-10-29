@@ -11,7 +11,7 @@ fps = 30
 # 読み取り方式。fpsが低いときは tools/probe_camera.py で最適な組み合わせを調べられる
 backend = "dshow"            # "dshow"(DirectShow) / "msmf"(Media Foundation) / "any"
 fourcc = "MJPG"              # "MJPG" / "YUY2" / "NV12" / ""(指定しない)。720pの非圧縮形式はUSB帯域で低fpsになりやすい
-fourcc_order = "before_size" # FOURCCを解像度指定の "before_size"(前) / "after_size"(後) どちらで設定するか
+fourcc_order = "after_size"  # FOURCCを解像度指定の "before_size"(前) / "after_size"(後) どちらで設定するか
 # buffer_size = 1
 # 露出・画質（未指定ならカメラ任せ）。起動中に e / [ / ] / s キーでも調整可
 # auto_exposure = false
