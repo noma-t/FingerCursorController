@@ -30,6 +30,8 @@ def main() -> None:
     print(f"# session {s.dir}")
     print(f"source={s.meta.get('source')} size={s.meta.get('frame_size')} versions={s.meta.get('versions')}")
     print(f"summary={json.dumps(s.meta.get('summary', {}), ensure_ascii=False)}")
+    print(f"camera_actual={s.meta.get('camera_actual')}")
+    print(f"camera_final={s.meta.get('camera_final')}")
 
     # ---- tracking
     n = len(frames)
@@ -39,9 +41,13 @@ def main() -> None:
     if n > 1:
         dts = np.diff([f["t_ms"] for f in frames])
         print(f"frame dt ms: {percentiles(dts.tolist(), (5, 50, 95, 99))}  max={dts.max():.1f}")
+        print(f"measured fps (frames / duration): {(n - 1) / max(1e-6, (frames[-1]['t_ms'] - frames[0]['t_ms']) / 1000):.1f}")
     for key in ("infer_ms", "read_ms", "proc_ms"):
         vals = [f["timing"][key] for f in frames if key in f.get("timing", {})]
         print(f"{key}: {percentiles(vals, (50, 95, 99))}")
+    cam_changes = [l for l in s.labels if l.get("type") == "camera_change"]
+    for ch in cam_changes:
+        print(f"camera change @ {ch['t_ms'] / 1000:.2f}s: {ch}")
     hands = Counter(f["hand"]["label"] for f in frames if f.get("hand"))
     print(f"handedness: {dict(hands)}")
     scores = [f["hand"]["score"] for f in frames if f.get("hand")]

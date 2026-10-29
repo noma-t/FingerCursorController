@@ -9,14 +9,13 @@ from pathlib import Path
 
 import cv2
 
+from .camera import CameraControl, mismatches, open_camera, read_back
 from .config import load_config
 from .guided import GuidedSession
 from .logger import SessionLogger
 from .overlay import Overlay
 from .pipeline import FrameResult, Pipeline
 from .tracker import HandTracker
-
-BACKENDS = {"dshow": cv2.CAP_DSHOW, "msmf": cv2.CAP_MSMF, "any": cv2.CAP_ANY}
 
 # Key codes from cv2.waitKeyEx (Windows / Linux-GTK) and letter fallbacks.
 LABEL_KEYS = {
@@ -31,16 +30,7 @@ LABEL_KEYS = {
 
 
 def open_capture(args, cfg):
-    if args.input:
-        cap = cv2.VideoCapture(args.input)
-    else:
-        cam = cfg.camera
-        cap = cv2.VideoCapture(cam.index, BACKENDS.get(cam.backend, cv2.CAP_ANY))
-        if cam.mjpg:
-            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, cam.width)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cam.height)
-        cap.set(cv2.CAP_PROP_FPS, cam.fps)
+    cap = cv2.VideoCapture(args.input) if args.input else open_camera(cfg.camera)
     if not cap.isOpened():
         sys.exit(f"could not open {'video ' + args.input if args.input else 'camera'}")
     return cap
@@ -79,6 +69,15 @@ def main(argv: list[str] | None = None) -> None:
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     src_fps = cap.get(cv2.CAP_PROP_FPS) or float(cfg.camera.fps)
+    camera_actual = read_back(cap)
+    cam_ctl = None if args.input else CameraControl(cap, cfg.camera)
+    if cam_ctl is not None:
+        c = cfg.camera
+        print(f"[camera] requested: backend={c.backend} fourcc={c.fourcc!r} order={c.fourcc_order} "
+              f"{c.width}x{c.height}@{c.fps}")
+        print(f"[camera] actual:    {camera_actual}")
+        for m in mismatches(c, camera_actual):
+            print(f"[camera] WARNING: {m}")
 
     tracker = HandTracker(cfg.tracker)
     pipeline = Pipeline(cfg)
@@ -87,6 +86,7 @@ def main(argv: list[str] | None = None) -> None:
         "source": args.input or f"camera:{cfg.camera.index}",
         "frame_size": [width, height],
         "source_fps": src_fps,
+        "camera_actual": camera_actual,
         "argv": sys.argv,
         "guided": args.guided,
     })
@@ -108,6 +108,8 @@ def main(argv: list[str] | None = None) -> None:
     frame_times: deque[float] = deque(maxlen=30)
     infer_hist: list[float] = []
     lost_frames = 0
+    read_hist: deque[float] = deque(maxlen=30)
+    cam_line = cam_ctl.summary_line() if cam_ctl is not None else ""
     prev_wall = None
 
     try:
@@ -153,6 +155,7 @@ def main(argv: list[str] | None = None) -> None:
             res = pipeline.process(t_ms, hand.landmarks if hand else None,
                                    hand.world if hand else None, width, height)
             proc_ms = (time.perf_counter() - t_p0) * 1000.0
+            read_hist.append((t_read1 - t_read0) * 1000.0)
 
             for ev in res.events:
                 logger.log_event(frame_idx, ev)
@@ -186,6 +189,9 @@ def main(argv: list[str] | None = None) -> None:
                 display = cv2.flip(frame, 1) if cfg.display.mirror else frame
                 status = {
                     "fps": fps, "infer_ms": infer_ms, "frame": frame_idx,
+                    "read_ms": sum(read_hist) / len(read_hist),
+                    "camera": f"{camera_actual['backend']} {camera_actual['fourcc'] or '-'} "
+                              f"{width}x{height}  {cam_line}",
                     "hand": f"{hand.handedness} {hand.handedness_score:.2f}" if hand else "no hand",
                     "recording": writer is not None,
                     "guided": guided.prompt(t_ms) if guided is not None else None,
@@ -201,6 +207,17 @@ def main(argv: list[str] | None = None) -> None:
                 logger.log_label(frame_idx, t_ms, {"type": "pause"})
             elif key in (ord("d"), ord("D")):
                 overlay.show_debug = not overlay.show_debug
+            elif cam_ctl is not None and key in (ord("e"), ord("["), ord("]"), ord("s")):
+                if key == ord("e"):
+                    change = cam_ctl.toggle_auto_exposure()
+                elif key == ord("s"):
+                    change = cam_ctl.open_settings_dialog()
+                else:
+                    change = cam_ctl.step_exposure(-1.0 if key == ord("[") else 1.0)
+                cam_line = cam_ctl.summary_line()
+                logger.log_label(frame_idx, t_ms, {"type": "camera_change", **change})
+                overlay.history.appendleft(f"{t_ms / 1000:7.2f}s [camera] {cam_line}")
+                print(f"   [camera] {change}")
             elif key in LABEL_KEYS:
                 label = LABEL_KEYS[key]
                 logger.log_label(frame_idx, t_ms, {"type": "label", "label": label})
@@ -212,6 +229,11 @@ def main(argv: list[str] | None = None) -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        if cam_ctl is not None:
+            final_cam = cam_ctl.state()
+            logger.update_meta(camera_final=final_cam)
+            print("[camera] final settings (copy into config.toml to keep them):")
+            print(cam_ctl.config_snippet())
         cap.release()
         if writer is not None:
             writer.release()

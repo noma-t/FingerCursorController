@@ -15,10 +15,24 @@ class CameraConfig:
     width: int = 1280
     height: int = 720
     fps: int = 30
-    # "dshow" / "msmf" / "any". DirectShow opens fastest on Windows.
+    # Capture backend: "dshow" (DirectShow) / "msmf" (Media Foundation) / "any" (OpenCV default).
     backend: str = "dshow"
-    # Request MJPG from the camera (often needed for 720p@30+ over USB).
-    mjpg: bool = True
+    # Pixel format requested from the camera: "MJPG" / "YUY2" / "NV12" / "" (don't request).
+    # Uncompressed formats (YUY2/NV12) at 720p are often limited to 5-10 fps by USB bandwidth.
+    fourcc: str = "MJPG"
+    # When to request the FOURCC: "before_size" or "after_size" (some DirectShow drivers
+    # only honour it after the resolution/fps have been set).
+    fourcc_order: str = "before_size"
+    buffer_size: int | None = None      # CAP_PROP_BUFFERSIZE; None = leave as is
+    # Exposure / image controls. None = leave the camera's own setting untouched.
+    auto_exposure: bool | None = None
+    exposure: float | None = None       # DirectShow: log2 seconds (-6 = 1/64 s). Lower = darker, faster
+    gain: float | None = None
+    brightness: float | None = None
+    # Values written to CAP_PROP_AUTO_EXPOSURE for on / off (DirectShow uses 0.75 / 0.25;
+    # some Media Foundation drivers expect 1 / 0).
+    auto_exposure_on_value: float = 0.75
+    auto_exposure_off_value: float = 0.25
 
 
 @dataclass

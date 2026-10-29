@@ -8,8 +8,18 @@ index = 0            # カメラ番号
 width = 1280
 height = 720
 fps = 30
-backend = "dshow"    # "dshow" / "msmf" / "any"
-mjpg = true
+# 読み取り方式。fpsが低いときは tools/probe_camera.py で最適な組み合わせを調べられる
+backend = "dshow"            # "dshow"(DirectShow) / "msmf"(Media Foundation) / "any"
+fourcc = "MJPG"              # "MJPG" / "YUY2" / "NV12" / ""(指定しない)。720pの非圧縮形式はUSB帯域で低fpsになりやすい
+fourcc_order = "before_size" # FOURCCを解像度指定の "before_size"(前) / "after_size"(後) どちらで設定するか
+# buffer_size = 1
+# 露出・画質（未指定ならカメラ任せ）。起動中に e / [ / ] / s キーでも調整可
+# auto_exposure = false
+# exposure = -6              # DirectShowでは 2^値 秒（-6 ≒ 1/64秒）。小さいほど暗く、fpsが出やすい
+# gain = 0
+# brightness = 128
+auto_exposure_on_value = 0.75  # CAP_PROP_AUTO_EXPOSURE の自動/手動の値（DirectShow: 0.75/0.25。MSMFで効かなければ 1/0 を試す）
+auto_exposure_off_value = 0.25
 
 [tracker]
 num_hands = 1

@@ -36,7 +36,10 @@ def _pt(p: np.ndarray) -> tuple[int, int]:
 
 def _text(img: np.ndarray, text: str, org: tuple[int, int], scale: float = 0.55,
           color: tuple[int, int, int] = (255, 255, 255), thick: int = 1) -> None:
-    cv2.putText(img, text, org, FONT, scale, (0, 0, 0), thick + 3, cv2.LINE_AA)
+    # Outline by offset copies: a thicker stroke changes glyph advance in OpenCV 5 and misaligns.
+    x, y = org
+    for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, 1), (-1, 1), (1, -1)):
+        cv2.putText(img, text, (x + dx, y + dy), FONT, scale, (0, 0, 0), thick, cv2.LINE_AA)
     cv2.putText(img, text, org, FONT, scale, color, thick, cv2.LINE_AA)
 
 
@@ -93,8 +96,11 @@ class Overlay:
 
         # Top-left status
         y = 24
-        _text(img, f"FPS {status.get('fps', 0):5.1f}  infer {status.get('infer_ms', 0):5.1f}ms  "
-                   f"frame {status.get('frame', 0)}", (10, y))
+        _text(img, f"FPS {status.get('fps', 0):5.1f}  read {status.get('read_ms', 0):5.1f}ms  "
+                   f"infer {status.get('infer_ms', 0):5.1f}ms  frame {status.get('frame', 0)}", (10, y))
+        if status.get("camera"):
+            y += 22
+            _text(img, f"cam: {status['camera']}", (10, y), 0.45, (200, 255, 200))
         y += 26
         hand = status.get("hand", "no hand")
         _text(img, f"hand: {hand}", (10, y))
@@ -128,7 +134,8 @@ class Overlay:
             size = cv2.getTextSize(guided, FONT, 1.1, 3)[0]
             _text(img, guided, ((w - size[0]) // 2, 90), 1.1, (0, 165, 255), 3)
 
-        _text(img, "q:quit p:pause d:debug  labels: arrows/IJKL=swipe t=tap h=hold space=mark",
+        _text(img, "q:quit p:pause d:debug e:auto-exp [/]:exposure s:cam settings  "
+                   "labels: arrows/IJKL=swipe t=tap h=hold space=mark",
               (10, h - 12), 0.45, (200, 200, 200))
 
     def _debug_panel(self, img: np.ndarray, res: FrameResult) -> None:
