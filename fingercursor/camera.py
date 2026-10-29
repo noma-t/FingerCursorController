@@ -127,9 +127,15 @@ class CameraControl:
 
     def config_snippet(self) -> str:
         s = self.state()
-        auto = self._is_auto()
-        lines = ["[camera]", f"auto_exposure = {'true' if auto else 'false'}"]
-        if not auto:
-            lines.append(f"exposure = {s['exposure']:g}")
+        v = s["auto_exposure"]
+        lines = ["[camera]"]
+        if min(abs(v - self.cam.auto_exposure_on_value), abs(v - self.cam.auto_exposure_off_value)) > 0.01:
+            # The driver did not report a usable value (DirectShow returns -1 when it can't read it).
+            lines.append(f"# auto_exposure / exposure: not reported by the driver (read {v:g})")
+        else:
+            auto = self._is_auto()
+            lines.append(f"auto_exposure = {'true' if auto else 'false'}")
+            if not auto:
+                lines.append(f"exposure = {s['exposure']:g}")
         lines += [f"gain = {s['gain']:g}", f"brightness = {s['brightness']:g}"]
         return "\n".join(lines)

@@ -69,3 +69,10 @@ def test_camera_overrides():
     apply_override(cfg, "camera.backend=msmf")
     apply_override(cfg, "camera.exposure=-6")
     assert (cfg.camera.fourcc, cfg.camera.backend, cfg.camera.exposure) == ("", "msmf", -6)
+
+
+def test_snippet_skips_unreported_exposure(monkeypatch):
+    cap = _open(monkeypatch)
+    cap.props[cv2.CAP_PROP_AUTO_EXPOSURE] = -1.0
+    snippet = camera.CameraControl(cap, CameraConfig()).config_snippet()
+    assert "auto_exposure =" not in snippet and "not reported" in snippet
