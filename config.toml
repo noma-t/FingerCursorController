@@ -1,0 +1,83 @@
+# FingerCursorController 設定ファイル
+# 値はすべて既定値。変更したい項目だけ書き換えればよい（削除した項目は既定値になる）。
+# コマンドラインからも上書き可能: --set contact.touch_on=0.35
+# 距離の単位 "S" = 手の大きさ（手首→人差し指付け根 と 人差し指付け根→小指付け根 の平均, 画面px）
+
+[camera]
+index = 0            # カメラ番号
+width = 1280
+height = 720
+fps = 30
+# 読み取り方式。fpsが低いときは tools/probe_camera.py で最適な組み合わせを調べられる
+backend = "dshow"            # "dshow"(DirectShow) / "msmf"(Media Foundation) / "any"
+fourcc = "MJPG"              # "MJPG" / "YUY2" / "NV12" / ""(指定しない)。720pの非圧縮形式はUSB帯域で低fpsになりやすい
+fourcc_order = "before_size" # FOURCCを解像度指定の "before_size"(前) / "after_size"(後) どちらで設定するか
+# buffer_size = 1
+# 露出・画質（未指定ならカメラ任せ）。起動中に e / [ / ] / s キーでも調整可
+# auto_exposure = false
+# exposure = -6              # DirectShowでは 2^値 秒（-6 ≒ 1/64秒）。小さいほど暗く、fpsが出やすい
+# gain = 0
+# brightness = 128
+auto_exposure_on_value = 0.75  # CAP_PROP_AUTO_EXPOSURE の自動/手動の値（DirectShow: 0.75/0.25。MSMFで効かなければ 1/0 を試す）
+auto_exposure_off_value = 0.25
+
+[tracker]
+num_hands = 1
+min_detection_confidence = 0.5
+min_presence_confidence = 0.5
+min_tracking_confidence = 0.5
+
+[filter]             # ランドマーク平滑化 (One Euro Filter)
+enabled = true
+min_cutoff = 1.5     # 小さいほど静止時に滑らか（遅延増）
+beta = 0.01          # 大きいほど速い動きへの追従が良い
+d_cutoff = 1.0
+
+[contact]            # 親指先 ↔ 人差し指 の接触判定
+touch_on = 0.30      # d/S がこれ未満で接触候補
+touch_off = 0.40     # d/S がこれ超で離脱候補（ヒステリシス）
+on_frames = 2        # 接触確定に必要な連続フレーム数
+off_frames = 2       # 離脱確定に必要な連続フレーム数
+segments = [0, 1, 2] # 判定に使う人差し指の区間 0:付け根-第2関節 1:第2-第1関節 2:第1関節-指先
+# max_abs_dz = 0.3   # 奥行き差ゲート（既定は無効）
+pose_gate = false    # true で人差し指が曲がっている時だけ接触を受け付ける
+pose_max_index_pip_deg = 150.0
+lost_grace_ms = 150.0 # 接触中のトラッキング途切れをこの時間まで許容
+
+[gesture]
+swipe_min_dist = 0.25      # スワイプ発火に必要な移動量 (S)
+axis_ratio = 1.5           # 主軸/副軸 の比がこれ以上で方向確定
+swipe_max_ms = 1000.0      # 接触開始からこの時間内に閾値到達が必要
+swipe_max_contact_d = 0.35 # d/S がこれ以下の間だけスワイプ発火（指を離す動きの誤検出防止）
+tap_min_ms = 30.0
+tap_max_ms = 350.0
+tap_max_move = 0.15
+long_press_ms = 500.0
+move_tolerance = 0.12      # 長押し成立までに許容する移動量
+anchor_landmark = 5        # 親指位置の基準点（5=人差し指付け根。手全体の移動を相殺）。-1で絶対位置
+
+[direction]
+frame = "image"      # "image"=画面上の見た目の方向 / "hand"=手首→中指付け根を「上」とする手基準
+swap_axes = false
+invert_x = false
+invert_y = false
+
+[display]
+mirror = true
+trail_length = 40
+history_lines = 8
+show_debug_panel = true
+
+[logging]
+dir = "logs"
+frames = true
+world_landmarks = true
+float_digits = 5
+record_video = false
+
+[guided]             # --guided モード
+repeats = 5
+gestures = ["swipe_left", "swipe_right", "swipe_up", "swipe_down", "tap", "long_press"]
+timeout_ms = 5000.0
+gap_ms = 1200.0
+shuffle = true
