@@ -32,7 +32,7 @@ LABEL_KEYS = {
 def open_capture(args, cfg):
     cap = cv2.VideoCapture(args.input) if args.input else open_camera(cfg.camera)
     if not cap.isOpened():
-        sys.exit(f"could not open {'video ' + args.input if args.input else 'camera'}")
+        sys.exit(f"could not open {'video ' + args.input if args.input else f'camera {cfg.camera.index}'}")
     return cap
 
 
@@ -58,6 +58,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
                     help="override a config value, e.g. --set gesture.swipe_min_dist=0.3")
     ap.add_argument("--input", help="process a video file instead of the camera")
+    ap.add_argument("--camera", type=int, metavar="INDEX",
+                    help="camera index to use (overrides camera.index; list them with tools/list_cameras.py)")
     ap.add_argument("--record", action="store_true", help="save the raw camera video into the session folder")
     ap.add_argument("--guided", action="store_true", help="guided test mode (prompts gestures, records results)")
     ap.add_argument("--no-window", action="store_true", help="run without a window (video input only)")
@@ -65,6 +67,8 @@ def main(argv: list[str] | None = None) -> None:
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config, args.set)
+    if args.camera is not None:
+        cfg.camera.index = args.camera
     cap = open_capture(args, cfg)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))

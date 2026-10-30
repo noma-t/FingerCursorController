@@ -76,3 +76,26 @@ def test_snippet_skips_unreported_exposure(monkeypatch):
     cap.props[cv2.CAP_PROP_AUTO_EXPOSURE] = -1.0
     snippet = camera.CameraControl(cap, CameraConfig()).config_snippet()
     assert "auto_exposure =" not in snippet and "not reported" in snippet
+
+
+def test_list_cameras_skips_unopenable(monkeypatch):
+    class IndexedCap(FakeCap):
+        def __init__(self, index, *args):
+            super().__init__(index, *args)
+            self.index = index
+
+        def isOpened(self):
+            return self.index in (0, 2)
+
+        def read(self):
+            return True, None
+
+        def release(self):
+            pass
+
+    monkeypatch.setattr(camera.cv2, "VideoCapture", IndexedCap)
+    monkeypatch.setattr(camera, "device_names", lambda: ["Cam A", "Cam B", "Cam C"])
+    found = camera.list_cameras("dshow", 4)
+    assert [c["index"] for c in found] == [0, 2]
+    assert [c["name"] for c in found] == ["Cam A", "Cam C"]
+    assert found[0]["width"] == 1280 and found[0]["frame_ok"]

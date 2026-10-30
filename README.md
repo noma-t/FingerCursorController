@@ -41,9 +41,17 @@ python -m fingercursor
 |---|---|
 | `--guided` | ガイド付きテスト。画面の指示（DO: SWIPE LEFT など）どおりに操作すると、正解・誤認識・未検出を記録 |
 | `--record` | カメラ映像を `video.mp4` としてセッションフォルダに保存 |
+| `--camera N` | 使用するカメラの番号（`camera.index` を上書き）。番号は `python tools/list_cameras.py` で確認 |
 | `--input FILE` | カメラの代わりに動画ファイルを処理（`--record` で撮った映像の再処理など） |
 | `--set KEY=VALUE` | 設定の一時上書き（例: `--set contact.touch_on=0.35`）。複数指定可 |
 | `--verbose` | TOUCH_START などのデバッグイベントもコンソールに表示 |
+
+カメラが複数接続されている場合は、一覧を出してから番号を指定します。`pygrabber` を入れる（`pip install pygrabber`、任意）と dshow ではデバイス名も表示されます。
+
+```bash
+python tools/list_cameras.py
+python -m fingercursor --camera 1
+```
 
 カメラが開かない場合は `config.toml` の `camera.index` や `camera.backend = "msmf"` を試してください。
 

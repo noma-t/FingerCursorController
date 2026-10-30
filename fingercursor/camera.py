@@ -19,6 +19,38 @@ def fourcc_to_str(value: float) -> str:
     return s if s.isprintable() else f"0x{v:08x}"
 
 
+def device_names() -> list[str] | None:
+    """DirectShow device names in index order, or None when pygrabber is unavailable (optional dependency)."""
+    try:
+        from pygrabber.dshow_graph import FilterGraph
+        return list(FilterGraph().get_input_devices())
+    except Exception:  # ImportError, or COM errors on non-Windows / broken drivers
+        return None
+
+
+def list_cameras(backend: str, max_index: int) -> list[dict[str, Any]]:
+    """Probe indices 0..max_index-1 by opening each one; only indices that open are returned."""
+    names = device_names() if backend == "dshow" else None
+    found = []
+    for index in range(max_index):
+        cap = cv2.VideoCapture(index, BACKENDS.get(backend, cv2.CAP_ANY))
+        try:
+            if not cap.isOpened():
+                continue
+            ok, _ = cap.read()
+            found.append({
+                "index": index,
+                "name": names[index] if names and index < len(names) else None,
+                "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                "fps": round(cap.get(cv2.CAP_PROP_FPS), 1),
+                "frame_ok": ok,
+            })
+        finally:
+            cap.release()
+    return found
+
+
 def open_camera(cam: CameraConfig) -> cv2.VideoCapture:
     cap = cv2.VideoCapture(cam.index, BACKENDS.get(cam.backend, cv2.CAP_ANY))
     if not cap.isOpened():
